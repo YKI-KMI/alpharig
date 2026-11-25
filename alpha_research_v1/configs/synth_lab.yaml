@@ -1,0 +1,30 @@
+# Synthetic oracle panel for Stage 1.
+# Every field is validated by alpharig.synth.PanelSpec (extra keys are rejected).
+n_stocks: 200
+n_periods: 500
+start: 2015-01-02
+freq: D
+seed: 7
+n_sectors: 10
+rho: 0.25
+annual_vol: 0.30
+sector_vol_share: 0.35
+beta_dispersion: 0.10
+fat_tail_df: 5.0
+signal_ic: 0.04
+signal_half_life: 20
+signal_max_lag: 60
+interaction: false
+regime_stay: 0.97
+regime_vol_mult: 2.0
+delist_fraction: 0.05
+delisting_return: -0.30
+restricted_fraction: 0.05
+ipo_fraction: 0.0
+fundamental_period_days: 91
+release_lag_jitter_days: 5
+release_lag_days:
+  eps: 45
+  revenue: 40
+  book_value: 60
+  net_income: 45
