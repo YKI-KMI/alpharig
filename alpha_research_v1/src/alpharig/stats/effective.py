@@ -11,7 +11,7 @@ cross-sections). Every reported statistic in alpharig is expected to carry an
 ``N_eff`` alongside its row count.
 
 This module is deliberately dependency-free so it can be used by reports,
-tests and the audit command without importing the data stack.
+tests and the validation harness without importing the data stack.
 """
 
 from __future__ import annotations

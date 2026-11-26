@@ -137,6 +137,7 @@ class SyntheticTruth:
             "realized_kurtosis": self.realized_kurtosis,
             "ic_low_vol": self.ic_low_vol,
             "ic_high_vol": self.ic_high_vol,
+            "interaction": self.spec.interaction,
             "release_lags": dict(self.release_lags),
             "research_only": True,
         }

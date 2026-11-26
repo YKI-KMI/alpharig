@@ -100,6 +100,20 @@ def synth(
         f"{truth.signal_ic_realized:.3f} (rank {truth.signal_rank_ic_realized:.3f}), "
         f"half-life {truth.signal_half_life:g}"
     )
+    if spec.interaction:
+        # A sign-flipping signal has a near-zero unconditional IC by design: the
+        # two regimes cancel. Reporting only the pooled number would look like a
+        # failed experiment when the structure is in fact exactly where it was
+        # planted, so the conditional ICs are shown side by side.
+        typer.echo(
+            f"conditional IC (sign-flip interaction): calm {truth.ic_low_vol:+.3f} | "
+            f"high-vol {truth.ic_high_vol:+.3f} | pooled {truth.signal_ic_realized:+.3f}"
+        )
+        typer.echo(
+            "  the pooled IC is not the target for this panel: the interaction is "
+            "only visible conditional on the regime, and any unconditional model "
+            "should be expected to find nothing."
+        )
     typer.echo(
         f"n_eff = {truth.n_eff:,.1f} effective observations "
         f"(rows = {n_dates * spec.n_stocks:,}, T={n_dates}, N={spec.n_stocks}, "
