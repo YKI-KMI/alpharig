@@ -33,7 +33,7 @@ def test_forty_features_without_declarations_build_nothing_and_warn_780():
     assert all_pairs_count(40) == 780
     build = registry.build(features)
 
-    assert build.frame.shape[1] == 0
+    assert build.panels == {}
     assert build.n_interactions == 0
     assert build.declared == []
     assert build.all_pairs == 780
@@ -57,14 +57,17 @@ def test_only_declared_pairs_are_built():
 
     build = registry.build(features)
 
-    assert list(build.frame.columns) == [interaction_column("momentum_12_1", "volatility")]
+    assert build.names == [interaction_column("momentum_12_1", "volatility")]
     assert build.declared == ["x__momentum_12_1__volatility"]
     assert build.all_pairs == 3  # C(3, 2)
     assert build.suppressed == 2
     assert any("suppressed" in warning for warning in build.warnings)
 
     expected = features["momentum_12_1"] * features["volatility"]
-    pd.testing.assert_frame_equal(build.frame[build.declared[0]], expected)
+    pd.testing.assert_frame_equal(build.panels[build.declared[0]], expected)
+    long = build.to_long()
+    assert list(long.columns) == ["date", "ticker", "interaction", "value"]
+    assert long["interaction"].unique().tolist() == build.declared
 
 
 def test_an_interaction_without_a_rationale_is_rejected():
@@ -120,3 +123,4 @@ def test_missing_features_are_reported_not_silently_dropped():
     build = registry.build({"momentum": _feature_frame(1)})
     assert build.n_interactions == 0
     assert any("missing" in warning for warning in build.warnings)
+    assert build.to_long().empty

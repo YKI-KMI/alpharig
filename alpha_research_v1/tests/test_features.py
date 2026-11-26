@@ -21,6 +21,7 @@ from alpharig.features.transforms import (
     ewma_decay,
     ewma_lambda,
     half_life_from_decay,
+    half_life_from_lambda,
 )
 
 TRAIN = pd.bdate_range("2020-01-01", periods=40)
@@ -46,14 +47,19 @@ def test_ewma_half_life_identities():
     # lambda = 1 - 0.5 ** (1 / h)
     assert ewma_lambda(3) == pytest.approx(0.2063, abs=1e-4)
     assert ewma_lambda(20) == pytest.approx(0.0341, abs=1e-4)
-    # decay weight 0.1 -> half-life ln(0.5)/ln(0.1) = 6.58 periods
-    assert half_life_from_decay(0.1) == pytest.approx(6.579, abs=1e-3)
+    # A smoothing constant (newest-observation weight) of 0.1 implies a
+    # half-life of ln(0.5)/ln(0.9) = 6.58 periods.
+    assert half_life_from_lambda(0.1) == pytest.approx(6.579, abs=1e-3)
+    assert half_life_from_lambda(ewma_lambda(7.0)) == pytest.approx(7.0)
+    # The retention helper is its inverse of ewma_decay.
     assert ewma_decay(20) == pytest.approx(1.0 - ewma_lambda(20))
-    assert ewma_lambda(half_life_from_decay(0.1)) == pytest.approx(0.1)
+    assert half_life_from_decay(ewma_decay(12.0)) == pytest.approx(12.0)
     with pytest.raises(ValueError):
         ewma_lambda(0.0)
     with pytest.raises(ValueError):
         half_life_from_decay(1.0)
+    with pytest.raises(ValueError):
+        half_life_from_lambda(1.0)
 
 
 def test_ewma_recursion_matches_its_own_lambda():
@@ -144,7 +150,7 @@ def test_transform_before_fit_raises():
 def test_winsorizer_bounds_come_from_training_rows_only():
     train = _panel(seed=1)
     test = _panel(seed=2)
-    test.iloc[0, 0] = 1_000.0  # a violent outlier that exists only out of fold
+    test.loc[TEST[0], "A"] = 1_000.0  # a violent outlier that exists only out of fold
 
     winsor = Winsorizer(0.01, 0.99).fit(train.loc[TRAIN], FOLD)
     out = winsor.transform(test)
@@ -197,9 +203,8 @@ def test_robust_scaler_uses_in_fold_median_and_mad():
 def test_neutralizer_removes_a_declared_exposure():
     rng = np.random.default_rng(7)
     index = TRAIN.append(TEST)
-    size = pd.DataFrame(
-        rng.normal(size=(len(index), 6)), index=index, columns=[f"N{i}" for i in range(6)]
-    )
+    columns = [f"N{i:02d}" for i in range(40)]
+    size = pd.DataFrame(rng.normal(size=(len(index), len(columns))), index=index, columns=columns)
     noise = pd.DataFrame(
         rng.normal(scale=0.1, size=size.shape), index=index, columns=size.columns
     )
@@ -210,9 +215,16 @@ def test_neutralizer_removes_a_declared_exposure():
     assert beta == pytest.approx(2.5, abs=0.1)
 
     residual = neutral.transform(feature.loc[TEST])
-    for date in TEST:
-        correlation = residual.loc[date].corr(size.loc[date])
-        assert abs(correlation) < 0.35
+    before = [abs(feature.loc[date].corr(size.loc[date])) for date in TEST]
+    after = [abs(residual.loc[date].corr(size.loc[date])) for date in TEST]
+    assert min(before) > 0.95
+    # 40 names leave roughly 1/sqrt(40) of sampling noise in a per-date
+    # correlation (the null mean of |rho| is about 0.13), so the test asks the
+    # neutraliser to remove the exposure, not the sampling noise.
+    assert float(np.mean(after)) < 0.25
+    assert residual.abs().mean().mean() == pytest.approx(
+        noise.loc[TEST].abs().mean().mean(), rel=0.35
+    )
 
 
 def test_neutralizer_needs_exposures():

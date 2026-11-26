@@ -55,13 +55,28 @@ def ewma_decay(half_life: float) -> float:
 
 
 def half_life_from_decay(decay: float) -> float:
-    """Half-life implied by a per-period decay weight, ``ln(0.5) / ln(w)``.
+    """Half-life implied by a per-period *retention* weight.
 
-    ``decay`` must lie strictly between 0 and 1; ``0.1`` gives 6.58 periods.
+    ``decay`` is the weight an observation keeps after one period, i.e.
+    ``0.5 ** (1 / half_life)``. It must lie strictly between 0 and 1;
+    ``0.5`` gives 1 period and ``0.1`` gives ``log_0.5(0.1) = 0.301`` periods,
+    because retaining 10% in one period is faster than a half-life.
     """
     if not 0.0 < decay < 1.0:
         raise ValueError("decay must be in (0, 1)")
     return math.log(0.5) / math.log(decay)
+
+
+def half_life_from_lambda(alpha: float) -> float:
+    """Half-life implied by an EWMA smoothing constant.
+
+    ``alpha`` is the weight given to the newest observation, so the previous
+    observations keep ``1 - alpha`` per period. ``alpha = 0.1`` corresponds to
+    a half-life of ``ln(0.5) / ln(0.9) = 6.58`` periods.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+    return math.log(0.5) / math.log(1.0 - alpha)
 
 
 # ----------------------------------------------------------------------
@@ -211,10 +226,17 @@ class CrossSectionalRank(PanelTransformer):
         self._state = {"output": self.output, "method": self.method}
 
     def _apply(self, frame: pd.DataFrame) -> pd.DataFrame:
-        ranked = frame.astype(float).rank(axis=1, method=self.method, pct=True)
-        if self.output == "centered":
-            return ranked.mul(2.0).sub(1.0)
-        return ranked
+        values = frame.astype(float)
+        if self.output == "pct":
+            return values.rank(axis=1, method=self.method, pct=True)
+        # Map ranks 1..n onto [-1, 1] with a zero mean, which the naive
+        # 2 * pct - 1 mapping does not do (its mean is 1/n, not 0).
+        ranked = values.rank(axis=1, method=self.method)
+        count = values.notna().sum(axis=1).astype(float)
+        center = (count + 1.0) / 2.0
+        half = ((count - 1.0) / 2.0).replace(0.0, np.nan)
+        centered = ranked.sub(center, axis=0).div(half, axis=0)
+        return centered.where(values.notna()).fillna(0.0)
 
 
 class Winsorizer(PanelTransformer):

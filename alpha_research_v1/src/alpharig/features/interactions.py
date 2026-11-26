@@ -78,11 +78,14 @@ def all_pairs_count(n_features: int) -> int:
 class InteractionBuild:
     """Result of building the declared interaction columns.
 
+    An interaction of two panels is itself a panel, so the result is a mapping
+    from interaction name to a dates-by-tickers frame, not a single frame.
+    Modelling code is expected to add each product as its own feature.
+
     Attributes
     ----------
-    frame:
-        Wide panel of product features, one column per declared pair. Empty
-        (zero columns) when nothing is declared.
+    panels:
+        Built interactions, keyed by ``x__feature__conditioner``.
     declared:
         Names of the pairs that were built.
     all_pairs:
@@ -93,7 +96,7 @@ class InteractionBuild:
         Plain-language reasons, including the all-pairs count.
     """
 
-    frame: pd.DataFrame
+    panels: dict[str, pd.DataFrame] = field(default_factory=dict)
     declared: list[str] = field(default_factory=list)
     all_pairs: int = 0
     suppressed: int = 0
@@ -101,8 +104,31 @@ class InteractionBuild:
 
     @property
     def n_interactions(self) -> int:
-        """Number of built interaction columns."""
-        return int(self.frame.shape[1])
+        """Number of built interaction panels."""
+        return len(self.panels)
+
+    @property
+    def names(self) -> list[str]:
+        """Built interaction names, sorted."""
+        return sorted(self.panels)
+
+    def to_long(self) -> pd.DataFrame:
+        """Stack every built interaction into ``date, ticker, interaction, value``."""
+        frames = []
+        for name, panel in sorted(self.panels.items()):
+            long = (
+                panel.rename_axis("date")
+                .reset_index()
+                .melt(id_vars="date", var_name="ticker", value_name="value")
+                .dropna(subset=["value"])
+            )
+            long["interaction"] = name
+            frames.append(long)
+        if not frames:
+            return pd.DataFrame(columns=["date", "ticker", "interaction", "value"])
+        return pd.concat(frames, ignore_index=True).loc[
+            :, ["date", "ticker", "interaction", "value"]
+        ]
 
     def as_dict(self) -> dict[str, object]:
         """JSON-friendly summary for a run record."""
@@ -237,15 +263,9 @@ class InteractionRegistry:
                     f"{undeclared[0]}; all-pairs crossing is not allowed"
                 )
 
-        if built:
-            frame = pd.DataFrame(built).sort_index()
-        else:
-            index = next(iter(features.values())).index if features else pd.Index([])
-            frame = pd.DataFrame(index=index)
-
         return InteractionBuild(
-            frame=frame,
-            declared=list(built),
+            panels={name: panel.sort_index() for name, panel in built.items()},
+            declared=sorted(built),
             all_pairs=possible,
             suppressed=suppressed,
             warnings=warnings,

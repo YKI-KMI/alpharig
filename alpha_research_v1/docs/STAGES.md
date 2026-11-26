@@ -27,7 +27,7 @@ The executable version of this plan is `src/alpharig/stages.py`; run
 |---:|---|---|---|
 | 0 | ground-rules | done | Shared n_eff / overlap utilities and conventions in place |
 | 1 | data-layer | done | PIT join, deletion property, rho/IC recovery, adapter warnings |
-| 2 | features | pending | EWMA identities, interaction arithmetic, cluster importance |
+| 2 | features | done | EWMA identities, interaction arithmetic, cluster importance, 780-pair refusal |
 | 3 | labels | pending | Rank/binary examples, overlap n_eff, horizon recovery |
 | 4 | validation-audit | pending | Exact purge/embargo arithmetic, canary and fit-before-split detection |
 | 5 | models-ledger | pending | Multiplicity, best-of-N deflation, keep-linear vs promote-interaction |

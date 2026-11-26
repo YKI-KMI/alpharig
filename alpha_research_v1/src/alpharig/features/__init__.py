@@ -62,6 +62,7 @@ from alpharig.features.transforms import (
     ewma_decay,
     ewma_lambda,
     half_life_from_decay,
+    half_life_from_lambda,
 )
 from alpharig.features import library as _library  # noqa: F401  (registers signals)
 
@@ -102,6 +103,7 @@ __all__ = [
     "ewma_decay",
     "ewma_lambda",
     "half_life_from_decay",
+    "half_life_from_lambda",
     "interaction_column",
     "marginal_effect",
     "permutation_importance",

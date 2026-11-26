@@ -48,7 +48,7 @@ STAGES: tuple[Stage, ...] = (
         title="Signal library and feature engine",
         goal="Versioned signal registry, fold-safe transforms, declared interactions only, redundancy pruning and clustered permutation importance.",
         gate="EWMA half-life identities, interaction effect arithmetic, cluster-importance test, 40-feature interaction warning.",
-        status="pending",
+        status="done",
     ),
     Stage(
         number=3,

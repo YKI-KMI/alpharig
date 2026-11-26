@@ -5,8 +5,9 @@
 alpharig is a research framework whose first job is not to find alpha. Its
 first job is to make it hard to fool ourselves. Point-in-time data, purged
 date-grouped validation, fold-only preprocessing, an append-only trial ledger,
-a single-use holdout and a leakage audit are built into the plumbing rather
-than bolted on at the end.
+a single-use holdout and a leakage audit are designed into the plumbing rather
+than bolted on at the end. Stages 0–2 exist today; the audit itself arrives in
+Stage 4, and nothing produced before it should be described as audited.
 
 > **Research only.** Nothing in this repository is investment advice. Outputs
 > must not be used to place orders or manage capital without independent
@@ -21,7 +22,7 @@ and run `alpharig stages --verbose`.
 |---:|---|---|
 | 0 | Ground rules and scaffolding | done |
 | 1 | Data layer and synthetic lab | done |
-| 2 | Signal library and feature engine | pending |
+| 2 | Signal library and feature engine | done |
 | 3 | Labels and targets | pending |
 | 4 | Validation harness and leakage audit | pending |
 | 5 | Models, baseline gate, trial ledger | pending |
@@ -98,6 +99,32 @@ alpharig stages --verbose
 - **Effective sample size** (`alpharig.stats`). `N_eff` and overlap
   corrections are shared utilities, not report-time afterthoughts.
 
+## What Stage 2 provides
+
+- **Versioned signal registry** (`alpharig.features.registry`). A signal
+  declares its name, version, lookback, family and release lag. Re-registering
+  the same `(name, version)` with different source raises
+  `SignalVersionError`, so a stored score always names the code that made it.
+- **Point-in-time inputs** (`alpharig.features.inputs`). A signal receives a
+  `SignalInputs` object truncated at `as_of` and masked to the investable
+  universe. The future is not hidden from the signal; it is absent.
+- **Fold-safe transforms** (`alpharig.features.transforms`). Cross-sectional
+  z-score and rank, in-fold winsoriser, robust scaler, neutraliser, lag,
+  rolling statistics and EWMA with `lambda = 1 - 0.5 ** (1 / half_life)`.
+  `fit` requires a `FoldGuard` and raises if the frame reaches into the test
+  window: there is no warn-and-continue path.
+- **Declared interactions only** (`alpharig.features.interactions`). Every
+  `(feature, conditioner)` pair needs a written rationale. With 40 features and
+  nothing declared, the registry builds zero columns and reports that all-pairs
+  crossing would have created 780.
+- **Redundancy pruning** (`alpharig.features.redundancy`). Hierarchical
+  clustering on correlation distance, one medoid per cluster. Importance is
+  never used to drop a feature.
+- **Cluster permutation importance** (`alpharig.features.importance`).
+  Correlated features are shuffled together, and solo importance is labelled
+  report-only, because a clone left alone in a correlated family looks
+  worthless precisely when the family is doing all the work.
+
 ## Repository layout
 
 ```
@@ -111,13 +138,14 @@ alpharig/
     data/                  # adapters, PIT store, universe, calendar, quality
     synth/                 # synthetic oracle generator
     stats/                 # effective sample size, panel statistics
+    features/              # signals, transforms, interactions, redundancy
     stages.py              # executable stage registry
     cli.py
   tests/
 ```
 
-Later stages add `features/`, `labels/`, `validation/`, `models/`,
-`selection/`, `portfolio/` and `monitor/`.
+Later stages add `labels/`, `validation/`, `models/`, `selection/`,
+`portfolio/` and `monitor/`.
 
 ## Data-source limits (free sources)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -117,7 +118,11 @@ def test_declared_release_lag_shifts_the_output(feature_panel):
     plain = registry.compute("raw", inputs)
     lagged = registry.compute("lagged", inputs)
     assert lagged.iloc[:2].isna().to_numpy().all()
-    pd.testing.assert_frame_equal(lagged.iloc[2:], plain.iloc[:-2])
+    # Same dates, values moved two periods older.
+    assert lagged.index.equals(plain.index)
+    np.testing.assert_allclose(
+        lagged.iloc[2:].to_numpy(), plain.iloc[:-2].to_numpy(), equal_nan=True
+    )
 
 
 def test_a_signal_that_invents_a_future_date_is_rejected(feature_panel):
